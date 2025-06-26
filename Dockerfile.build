@@ -96,6 +96,8 @@ RUN \
     if [ ! -z "${FDB_ARCH}" ]; then \
         RUSTFLAGS="-L /usr/lib" cargo chef cook --recipe-path recipe.json --zigbuild --release --target ${TARGET} -p stalwart --no-default-features --features "foundationdb elastic s3 redis nats enterprise"; \
     fi
+# Restore the source code
+COPY . .
 RUN \
     --mount=type=secret,id=ACTIONS_RESULTS_URL,env=ACTIONS_RESULTS_URL \
     --mount=type=secret,id=ACTIONS_RUNTIME_TOKEN,env=ACTIONS_RUNTIME_TOKEN \
@@ -139,8 +141,6 @@ RUN \
         file "$binary" && \
         if ! strings "$binary" | grep -q "Stalwart"; then \
             echo "ERROR: Binary $binary does not contain 'Stalwart' string" && \
-            echo "Binary contents preview:" && \
-            hexdump -C "$binary" | head -20 && \
             exit 1; \
         else \
             echo "✓ Binary $binary validation passed"; \
