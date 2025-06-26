@@ -129,6 +129,23 @@ RUN \
     mv /app/target/${TARGET}/release/stalwart /app/artifact/stalwart && \
     mv /app/target/${TARGET}/release/stalwart-cli /app/artifact/stalwart-cli
 
+# Validate all binaries
+RUN \
+    echo "Validating binaries..." && \
+    for binary in /app/artifact/*; do \
+        echo "Checking $binary..." && \
+        ls -la "$binary" && \
+        file "$binary" && \
+        if ! strings "$binary" | grep -q "Stalwart"; then \
+            echo "ERROR: Binary $binary does not contain 'Stalwart' string" && \
+            echo "Binary contents preview:" && \
+            hexdump -C "$binary" | head -20 && \
+            exit 1; \
+        else \
+            echo "✓ Binary $binary validation passed"; \
+        fi; \
+    done
+
 # *****************
 # Binary stage
 # *****************
