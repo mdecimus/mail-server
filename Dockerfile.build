@@ -85,11 +85,7 @@ RUN \
         rm -rf fdb-client.deb /fdb; \
     fi
 
-# Copy the source code
-COPY . .
-
-# Backup what cargo-chef will modify
-RUN mkdir /backup && cp -r crates/ tests/ Cargo.toml Cargo.lock /backup/
+RUN find . -name "*.yml" -o -name "*.toml" | sort
 
 # Cargo-chef Cache layer
 RUN \
@@ -110,8 +106,12 @@ RUN \
     cargo chef cook --recipe-path recipe.json --zigbuild --release --target ${TARGET} -p stalwart --no-default-features --features "sqlite postgres mysql rocks elastic s3 redis azure nats enterprise" && \
     cargo chef cook --recipe-path recipe.json --zigbuild --release --target ${TARGET} -p stalwart-cli
 
-# Restore original source
-RUN cp -r /backup/crates/ /backup/tests/ /backup/Cargo.toml /backup/Cargo.lock . && rm -rf /backup
+RUN find . -name "*.yml" -o -name "*.toml" | sort
+
+# Copy the source code
+COPY . .
+
+RUN find . -name "*.yml" -o -name "*.toml" | sort
 
 ENV RUSTC_WRAPPER="sccache" \
     SCCACHE_GHA_ENABLED=true
