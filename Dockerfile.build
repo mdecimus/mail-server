@@ -84,8 +84,13 @@ RUN \
         mv /fdb/usr/lib/libfdb_c.so /usr/lib && \
         rm -rf fdb-client.deb /fdb; \
     fi
+
 # Copy the source code
 COPY . .
+
+# Backup what cargo-chef will modify
+RUN mkdir /backup && cp -r crates/ tests/ Cargo.toml Cargo.lock /backup/
+
 # Cargo-chef Cache layer
 RUN \
     --mount=type=secret,id=ACTIONS_RESULTS_URL,env=ACTIONS_RESULTS_URL \
@@ -96,8 +101,6 @@ RUN \
     if [ ! -z "${FDB_ARCH}" ]; then \
         RUSTFLAGS="-L /usr/lib" cargo chef cook --recipe-path recipe.json --zigbuild --release --target ${TARGET} -p stalwart --no-default-features --features "foundationdb elastic s3 redis nats enterprise"; \
     fi
-# Restore the source code
-COPY . .
 RUN \
     --mount=type=secret,id=ACTIONS_RESULTS_URL,env=ACTIONS_RESULTS_URL \
     --mount=type=secret,id=ACTIONS_RUNTIME_TOKEN,env=ACTIONS_RUNTIME_TOKEN \
@@ -106,6 +109,10 @@ RUN \
     source /env-cargo && \
     cargo chef cook --recipe-path recipe.json --zigbuild --release --target ${TARGET} -p stalwart --no-default-features --features "sqlite postgres mysql rocks elastic s3 redis azure nats enterprise" && \
     cargo chef cook --recipe-path recipe.json --zigbuild --release --target ${TARGET} -p stalwart-cli
+
+# Restore original source
+RUN cp -r /backup/crates/ /backup/tests/ /backup/Cargo.toml /backup/Cargo.lock . && rm -rf /backup
+
 ENV RUSTC_WRAPPER="sccache" \
     SCCACHE_GHA_ENABLED=true
 # Build FoundationDB version
