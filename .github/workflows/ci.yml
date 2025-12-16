@@ -325,7 +325,7 @@ jobs:
 
   macos:
     name: Build / ${{matrix.target}}
-    runs-on: macos-14
+    runs-on: macos-latest
     strategy:
       fail-fast: false
       matrix:
@@ -350,7 +350,24 @@ jobs:
           curl --retry 5 -Lso foundationdb.pkg "$(gh api -X GET /repos/apple/foundationdb/releases --jq '.[] | select(.prerelease == false) | .assets[] | select(.name | test("${{startsWith(matrix.target, 'x86') && 'x86_64' || 'arm64'}}" + ".pkg$")) | .browser_download_url' | head -n1)"
           echo "=== Package contents ==="
           pkgutil --payload-files foundationdb.pkg || true
-          sudo installer -allowUntrusted -verbose -dumplog -pkg foundationdb.pkg -target /
+
+          # Extract the package manually (bypass the broken installer)
+          pkgutil --expand foundationdb.pkg fdb_expanded
+        
+          # Extract the client package payload
+          cd fdb_expanded/FoundationDB-clients.pkg
+          gzip -dc Payload | cpio -id
+        
+          # Copy files to system locations
+          sudo cp -R usr/local/lib/libfdb_c.dylib /usr/local/lib/
+          sudo mkdir -p /usr/local/include/foundationdb
+          sudo cp -R usr/local/include/foundationdb/* /usr/local/include/foundationdb/
+        
+          # Verify installation
+          ls -la /usr/local/lib/libfdb_c.dylib
+          file /usr/local/lib/libfdb_c.dylib
+        
+          #sudo installer -allowUntrusted -verbose -dumplog -pkg foundationdb.pkg -target /
           cargo build --release --target ${{matrix.target}} -p stalwart --no-default-features --features "foundationdb s3 redis nats enterprise"
           mkdir -p artifacts
           mv ./target/${{matrix.target}}/release/stalwart ./artifacts/stalwart-foundationdb
