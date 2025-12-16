@@ -325,7 +325,7 @@ jobs:
 
   macos:
     name: Build / ${{matrix.target}}
-    runs-on: macos-latest
+    runs-on: macos-14
     strategy:
       fail-fast: false
       matrix:
