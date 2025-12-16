@@ -359,6 +359,8 @@ jobs:
           gzip -dc Payload | cpio -id
         
           # Copy files to system locations
+          sudo mkdir -p /usr/local/lib
+          sudo mkdir -p /usr/local/include          
           sudo cp -R usr/local/lib/libfdb_c.dylib /usr/local/lib/
           sudo mkdir -p /usr/local/include/foundationdb
           sudo cp -R usr/local/include/foundationdb/* /usr/local/include/foundationdb/
