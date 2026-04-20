@@ -468,7 +468,7 @@ jobs:
       - name: Un-draft release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
+        run: gh release edit "${{ github.ref_name }}" --draft=false --latest --repo "${{ github.repository }}"
 
   cleanup:
     name: Cleanup failed release
