@@ -43,7 +43,7 @@ jobs:
     if: github.event_name == 'push' || inputs.Docker
     steps:
       - name: Install Cosign
-        uses: sigstore/cosign-installer@v4
+        uses: sigstore/cosign-installer@v4.1.1
       - name: Log In to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -424,6 +424,24 @@ jobs:
             archive/**/*.tar.gz
             archive/**/*.zip
 
+      - name: Checkout (for CHANGELOG)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/checkout@v6.0.2
+
+      - name: Build release body
+        run: |
+          if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
+            awk '/^## \[/{c++} c==1' CHANGELOG.md > release_body.md
+            echo "" >> release_body.md
+          else
+            : > release_body.md
+          fi
+          cat >> release_body.md <<EOF
+          <hr />
+
+          ### Check binary attestation at [here](${{ steps.attest.outputs.attestation-url }})
+          EOF
+
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
@@ -433,9 +451,34 @@ jobs:
             archive/**/*.sigstore.json
           prerelease: ${{!startsWith(github.ref, 'refs/tags/') || null}}
           tag_name: ${{!startsWith(github.ref, 'refs/tags/') && 'nightly' || null}}
-          # TODO add instructions about using cosign to verify binary artifact
-          append_body: true
-          body: |
-            <hr />
+          # Tag-push releases are created as drafts; the `publish` job un-drafts
+          # them only after all build jobs succeed, so watcher notifications
+          # don't fire on broken builds.
+          draft: ${{ startsWith(github.ref, 'refs/tags/') || null }}
+          body_path: release_body.md
 
-            ### Check binary attestation at [here](${{ steps.attest.outputs.attestation-url }})
+  publish:
+    name: Publish release
+    needs: [linux, windows, macos, multiarch, release]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Un-draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
+
+  cleanup:
+    name: Cleanup failed release
+    needs: [linux, windows, macos, multiarch, release]
+    if: failure() && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete draft release and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "${{ github.ref_name }}" --yes --cleanup-tag --repo "${{ github.repository }}" || true
